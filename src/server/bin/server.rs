@@ -1,46 +1,41 @@
-use std::io::{BufRead, BufReader, Result};
+use std::io::{Result, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{poll, read, Event, KeyCode};
 use gol_multi::game::{create_state, next_grid, State, GRID, GRID_WIDTH, MS_PER_FRAME, PREV_GRID};
-use gol_multi::term::{end_terminal, render, reset_terminal, start_terminal};
+use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
+
+static mut ACTIVE_CONNECTIONS: u64 = 0;
 
 fn main() -> Result<()> {
     println!("Hello, server!");
 
-    thread::spawn(|| {
-        let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
-
-        for stream in listener.incoming() {
-            let stream = stream.unwrap();
-            println!("Connection established from {}", stream.peer_addr().unwrap());
-            handle_connection(stream);
-        }
-    });
-
-    let state: State = create_state();
+    let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
+    let streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
 
     unsafe {
-        run(state)?;
+        let streams_clone = Arc::clone(&streams);
+        thread::spawn(move || {
+            for stream in listener.incoming() {
+                let stream = stream.unwrap();
+                println!("Connection established from {}", stream.peer_addr().unwrap());
+                ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
+                streams_clone.lock().unwrap().push(Mutex::new(stream));
+            }
+        });
+
+        let streams_clone2 = Arc::clone(&streams);
+        let state: State = create_state();
+        run(state, streams_clone2)?;
     }
 
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
-
-    println!("Request: {http_request:#?}");
-}
-
-unsafe fn run(mut state: State) -> Result<()> {
+unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> Result<()> {
     start_terminal()?;
     /* GLIDER */
     GRID[1 + GRID_WIDTH * 8] = 1;
@@ -86,6 +81,14 @@ unsafe fn run(mut state: State) -> Result<()> {
         }
 
         render(&state)?;
+        render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
+        streams.lock().unwrap().iter().for_each(|stream| {
+            stream
+                .lock()
+                .unwrap()
+                .write(&GRID)
+                .expect("To be able to write to stream");
+        });
         next_grid(&state);
         let _ = send_grid(&state);
         state.frame = state.frame + 1;

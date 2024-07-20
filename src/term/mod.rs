@@ -8,7 +8,7 @@ use crossterm::{
     QueueableCommand,
 };
 
-use crate::game::{State, CELL, FPS, GRID, GRID_WIDTH};
+use crate::game::{State, CELL, FPS, GRID, GRID_HEIGHT, GRID_WIDTH};
 // Status
 pub const RST: &str = "\x1b[0m";
 
@@ -94,9 +94,24 @@ pub unsafe fn render(state: &State) -> Result<()> {
         }
     }
 
-    stdout.queue(MoveTo(state.width + 4, 2))?;
-    stdout.write((state.frame / FPS).to_string().as_bytes())?;
     stdout.flush()?;
+    Ok(())
+}
+
+#[derive(Debug)]
+pub struct DebugData {
+    pub active_connections: u64,
+}
+
+pub unsafe fn render_debug_data(active: bool, state: &State, active_connections: &u64) -> Result<()> {
+    if !active {
+        return Ok(());
+    }
+    let mut stdout = stdout();
+    stdout.queue(MoveTo(0 as u16, (GRID_HEIGHT + 3) as u16))?;
+    stdout.write(format!("active_connections: {active_connections}\n").as_bytes())?;
+    stdout.queue(MoveTo(0 as u16, (GRID_HEIGHT + 4) as u16))?;
+    stdout.write(format!("time_running: {}s", state.frame / FPS).as_bytes())?;
     Ok(())
 }
 
