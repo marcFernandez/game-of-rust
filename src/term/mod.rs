@@ -72,6 +72,7 @@ pub fn start_terminal() -> Result<()> {
 pub fn clear_terminal() -> Result<()> {
     let mut stdout = stdout();
     stdout.queue(Clear(ClearType::All))?;
+    stdout.queue(Hide)?;
     stdout.flush()?;
     Ok(())
 }

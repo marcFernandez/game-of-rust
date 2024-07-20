@@ -9,3 +9,4 @@ Implementation of [Game of Life]() in Rust. Server sends the grid to all connect
 - [ ] Log to file
 - [ ] Update client pool when client disconnects
 - [ ] Handle client errors
+- [ ] Implement protocol to send/recv data
