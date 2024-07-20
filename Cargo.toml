@@ -1,0 +1,17 @@
+[[bin]]
+name = "server"
+path = "src/server/bin/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client/bin/client.rs"
+
+[package]
+name = "gol-multi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossterm = "0.27.0"
