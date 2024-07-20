@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         thread::spawn(move || {
             for stream in listener.incoming() {
                 let stream = stream.unwrap();
-                println!("Connection established from {}", stream.peer_addr().unwrap());
+                eprintln!("Connection established from {}", stream.peer_addr().unwrap());
                 ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
                 streams_clone.lock().unwrap().push(Mutex::new(stream));
             }
@@ -80,21 +80,18 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
             break;
         }
 
-        render(&state)?;
+        render()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
+        let grid_str: &str = &GRID.iter().map(|val| val.to_string()).collect::<String>();
+        //eprintln!("Grid: {:?}", grid_str);
         streams.lock().unwrap().iter().for_each(|stream| {
-            stream
-                .lock()
-                .unwrap()
-                .write(&GRID)
-                .expect("To be able to write to stream");
+            let mut stream_lock = stream.lock().unwrap();
+            let _ = stream_lock.write(grid_str.as_bytes());
+            let _ = stream_lock.flush();
         });
         next_grid(&state);
         let _ = send_grid(&state);
         state.frame = state.frame + 1;
-        if state.frame == 2000 {
-            break;
-        }
         let diff = Duration::from_millis(MS_PER_FRAME as u64) - Instant::now().duration_since(clock);
         if diff.as_millis() > 0 {
             thread::sleep(diff);

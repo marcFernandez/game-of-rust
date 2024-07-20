@@ -69,6 +69,13 @@ pub fn start_terminal() -> Result<()> {
     Ok(())
 }
 
+pub fn clear_terminal() -> Result<()> {
+    let mut stdout = stdout();
+    stdout.queue(Clear(ClearType::All))?;
+    stdout.flush()?;
+    Ok(())
+}
+
 pub fn end_terminal() -> Result<()> {
     disable_raw_mode()?;
     let mut stdout = stdout();
@@ -77,10 +84,10 @@ pub fn end_terminal() -> Result<()> {
     Ok(())
 }
 
-pub unsafe fn render(state: &State) -> Result<()> {
+pub unsafe fn render() -> Result<()> {
     let mut stdout = stdout();
-    for y in 0..(state.height as usize) {
-        for x in 0..(state.width as usize) {
+    for y in 0..(GRID_HEIGHT as usize) {
+        for x in 0..(GRID_WIDTH as usize) {
             stdout.queue(MoveTo((x * 2) as u16, y as u16))?;
             if GRID[x + GRID_WIDTH * y] == 1 {
                 stdout.write(WHITE_BG.as_bytes())?;
