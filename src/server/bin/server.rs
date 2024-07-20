@@ -11,8 +11,6 @@ use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, s
 static mut ACTIVE_CONNECTIONS: u64 = 0;
 
 fn main() -> Result<()> {
-    println!("Hello, server!");
-
     let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
     let streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
 
@@ -21,7 +19,6 @@ fn main() -> Result<()> {
         thread::spawn(move || {
             for stream in listener.incoming() {
                 let stream = stream.unwrap();
-                eprintln!("Connection established from {}", stream.peer_addr().unwrap());
                 ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
                 streams_clone.lock().unwrap().push(Mutex::new(stream));
             }
@@ -83,7 +80,6 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
         render()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
         let grid_str: &str = &GRID.iter().map(|val| val.to_string()).collect::<String>();
-        //eprintln!("Grid: {:?}", grid_str);
         streams.lock().unwrap().iter().for_each(|stream| {
             let mut stream_lock = stream.lock().unwrap();
             let _ = stream_lock.write(grid_str.as_bytes());
