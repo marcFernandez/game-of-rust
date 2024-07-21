@@ -6,7 +6,8 @@ Implementation of [Game of Life]() in Rust. Server sends the grid to all connect
 
 ### TODO
 
+- [X] Implement protocol to send/recv data
 - [ ] Log to file
 - [ ] Update client pool when client disconnects
 - [ ] Handle client errors
-- [ ] Implement protocol to send/recv data
+- [ ] Send grid as bit per cell instead of byte per cell

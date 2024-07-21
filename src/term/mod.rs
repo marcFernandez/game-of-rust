@@ -123,13 +123,14 @@ pub unsafe fn render_debug_data(active: bool, state: &State, active_connections:
     Ok(())
 }
 
-pub unsafe fn render_txt(state: &State) -> Result<()> {
+pub unsafe fn render_txt() -> Result<()> {
     let mut stdout = stdout();
-    for y in 0..state.height {
+    for y in 0..GRID_HEIGHT as u16 {
         stdout.queue(MoveTo(0, y))?;
-        for x in 0..(state.width as usize) {
+        for x in 0..(GRID_WIDTH as usize) {
             stdout.write(format!("{} ", GRID[x as usize + GRID_WIDTH * y as usize]).as_bytes())?;
         }
     }
+    stdout.flush()?;
     Ok(())
 }
