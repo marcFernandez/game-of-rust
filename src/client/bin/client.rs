@@ -1,6 +1,6 @@
 use gol_multi::{
-    game::GRID,
-    net::{CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, MAX_CONTENT_SIZE, SIZE_HEADER_SIZE},
+    game::{GRID_HEIGHT, GRID_WIDTH},
+    net::{uncompress_grid, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, MAX_CONTENT_SIZE, SIZE_HEADER_SIZE},
     term::{clear_terminal, render},
 };
 use std::{
@@ -57,33 +57,29 @@ unsafe fn handle_connection(mut stream: TcpStream) -> Result<()> {
     clear_terminal()?;
     loop {
         // Read cmd header (1 byte)
-        println!("Reading header");
         stream.read_exact(&mut header_buffer)?;
-        println!("Header: {:#04x}", header_buffer[0]);
+        eprintln!("Header: {:#04x}", header_buffer[0]);
         // Read size header (2 bytes) big-endian
-        println!("Reading size");
         stream.read_exact(&mut size_buffer)?;
         content_size = (size_buffer[0] as u16) << 8 | size_buffer[1] as u16;
-        println!("Size: {}B", content_size);
+        eprintln!("Size: {}B", content_size);
 
         // Read to fill slice of max-sized content buffer based on content_size
-        println!("Reading contents");
         stream.read_exact(&mut content_buffer[0..content_size.into()])?;
-        println!("Read content");
 
         match header_buffer[0] {
             CMD_NEW_GRID => {
-                println!("Received new grid");
-                GRID.copy_from_slice(&content_buffer[0..content_size.into()]);
+                eprintln!("Grid: {:?}", &content_buffer[0..((GRID_WIDTH * GRID_HEIGHT) / 8)]);
+                uncompress_grid(&content_buffer[0..((GRID_WIDTH * GRID_HEIGHT) / 8)]);
                 render()?;
             }
             CMD_LOG_MSG => {
                 log = String::from_utf8(content_buffer[0..content_size.into()].to_vec())
                     .expect("Log message to be valid utf8");
-                println!("Received log msg: {log}");
+                eprintln!("Received log msg: {log}");
             }
             _ => {
-                println!("header_buffer[0] = {} did not match anything", header_buffer[0]);
+                eprintln!("header_buffer[0] = {} did not match anything", header_buffer[0]);
             }
         }
     }

@@ -11,15 +11,13 @@ pub fn print_usage() {
 }
 
 pub struct State {
-    pub width: u16,
-    pub height: u16,
     pub frame: usize,
 }
 
 pub const GRID_WIDTH: usize = 10;
-pub const GRID_HEIGHT: usize = 10;
+pub const GRID_HEIGHT: usize = 8;
 
-pub const FPS: usize = 2;
+pub const FPS: usize = 4;
 pub const MS_PER_FRAME: usize = 1000 / FPS;
 pub const CELL: &str = "  ";
 
@@ -28,31 +26,11 @@ pub static mut PREV_GRID: [u8; GRID_WIDTH * GRID_HEIGHT] = [0; GRID_WIDTH * GRID
 
 pub fn create_state() -> State {
     let mut args = args().skip(1);
-    let mut width = 10;
-    let mut height = 10;
     while let Some(next) = args.next() {
         match next.as_str() {
             "--help" => {
                 print_usage();
                 exit(0);
-            }
-            "-w" => {
-                width = match args.next().expect("Width to be provided").parse::<u16>() {
-                    Ok(w) => w,
-                    Err(err) => {
-                        eprintln!("ERROR - Cannot parse provided width as u16: {:?}", err);
-                        exit(1);
-                    }
-                }
-            }
-            "-h" => {
-                height = match args.next().expect("Height to be provided").parse::<u16>() {
-                    Ok(h) => h,
-                    Err(err) => {
-                        eprintln!("ERROR - Cannot parse provided height as u16: {:?}", err);
-                        exit(1);
-                    }
-                }
             }
             _ => {
                 eprintln!("Unrecognized arg: {}", next);
@@ -62,17 +40,13 @@ pub fn create_state() -> State {
         }
     }
 
-    return State {
-        width,
-        height,
-        frame: 0,
-    };
+    return State { frame: 0 };
 }
 
-pub unsafe fn next_grid(state: &State) {
+pub unsafe fn next_grid() {
     //let mut log = String::new();
-    for y in 0..(state.height as usize) {
-        for x in 0..(state.width as usize) {
+    for y in 0..(GRID_HEIGHT as usize) {
+        for x in 0..(GRID_WIDTH as usize) {
             let prev_val = GRID[x + GRID_WIDTH * y];
             let new_val = compute_neighbors(GRID[x + GRID_WIDTH * y], x, y);
             if prev_val != new_val || prev_val > 0 {

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{poll, read, Event, KeyCode};
 use gol_multi::game::{create_state, next_grid, State, GRID, GRID_HEIGHT, GRID_WIDTH, MS_PER_FRAME, PREV_GRID};
-use gol_multi::net::{CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE};
+use gol_multi::net::{compress_grid, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE};
 use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
 
 static mut ACTIVE_CONNECTIONS: u64 = 0;
@@ -41,33 +41,35 @@ fn main() -> Result<()> {
 unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> Result<()> {
     start_terminal()?;
     /* GLIDER */
-    GRID[1 + GRID_WIDTH * 8] = 1;
-    GRID[2 + GRID_WIDTH * 8] = 1;
-    GRID[3 + GRID_WIDTH * 8] = 1;
-    GRID[2 + GRID_WIDTH * 6] = 1;
-    GRID[3 + GRID_WIDTH * 7] = 1;
+    GRID[1 + GRID_WIDTH * 3] = 1;
+    GRID[2 + GRID_WIDTH * 3] = 1;
+    GRID[3 + GRID_WIDTH * 3] = 1;
+    GRID[2 + GRID_WIDTH * 1] = 1;
+    GRID[3 + GRID_WIDTH * 2] = 1;
 
-    PREV_GRID[1 + GRID_WIDTH * 8] = 1;
-    PREV_GRID[2 + GRID_WIDTH * 8] = 1;
-    PREV_GRID[3 + GRID_WIDTH * 8] = 1;
-    PREV_GRID[2 + GRID_WIDTH * 6] = 1;
-    PREV_GRID[3 + GRID_WIDTH * 7] = 1;
+    PREV_GRID[1 + GRID_WIDTH * 3] = 1;
+    PREV_GRID[2 + GRID_WIDTH * 3] = 1;
+    PREV_GRID[3 + GRID_WIDTH * 3] = 1;
+    PREV_GRID[2 + GRID_WIDTH * 1] = 1;
+    PREV_GRID[3 + GRID_WIDTH * 2] = 1;
+    /**/
 
-    /* STICK
-    GRID[1][3] = 1;
-    GRID[2][3] = 1;
-    GRID[3][3] = 1;
+    /* STICK * /
+    GRID[0 + GRID_WIDTH * 0] = 1;
+    GRID[1 + GRID_WIDTH * 0] = 1;
+    GRID[2 + GRID_WIDTH * 0] = 1;
 
-    PREV_GRID[1][3] = 1;
-    PREV_GRID[2][3] = 1;
-    PREV_GRID[3][3] = 1;
-    */
+    PREV_GRID[0 + GRID_WIDTH * 0] = 1;
+    PREV_GRID[1 + GRID_WIDTH * 0] = 1;
+    PREV_GRID[2 + GRID_WIDTH * 0] = 1;
+    / **/
 
     let mut clock;
     let mut exit = false;
 
     let mut cmd_msg: [u8; CMD_HEADER_SIZE];
     let mut size_msg: [u8; SIZE_HEADER_SIZE];
+    let mut grid_msg: [u8; (GRID_WIDTH * GRID_HEIGHT) / 8] = [0; (GRID_WIDTH * GRID_HEIGHT) / 8];
 
     let mut send_msg = false;
     let log_msg = "This is a test log message";
@@ -97,21 +99,21 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
         render()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
 
-        //grid_str = &GRID.iter().map(|val| val.to_string()).collect::<String>();
         if send_msg {
             cmd_msg = CMD_LOG_MSG.to_be_bytes();
             size_msg = [(log_msg_size >> 8 & 0xFF) as u8, (log_msg_size & 0xFF) as u8];
         } else {
             cmd_msg = CMD_NEW_GRID.to_be_bytes();
-            size_msg = ((GRID_WIDTH * GRID_HEIGHT) as u16).to_be_bytes();
+            size_msg = (((GRID_WIDTH * GRID_HEIGHT) / 8) as u16).to_be_bytes();
+            grid_msg = compress_grid();
+            eprintln!("Sending content_msg: {:?}", grid_msg);
         }
         eprintln!("Sending cmd_msg: {:?}", cmd_msg);
         eprintln!("Sending size_msg: {:?}", size_msg);
-        eprintln!("Sending grid_msg: {:?}", &GRID);
 
-        //eprintln!("Grid: {:?}", grid_str);
         streams.lock().unwrap().iter().for_each(|stream| {
             let mut stream_lock = stream.lock().unwrap();
+            // TODO: Handle connection errors/dcs
             let peer_addr = stream_lock.peer_addr().expect("Peer addr to be available");
             eprintln!("Sending to {peer_addr}");
             let _ = stream_lock.write(&cmd_msg);
@@ -120,13 +122,13 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
                 let _ = stream_lock.write(&log_msg.as_bytes());
             } else {
                 // TODO: Send grid as bit per cell instead of byte per cell
-                let _ = stream_lock.write(&GRID);
+                let _ = stream_lock.write(&grid_msg);
             }
             let _ = stream_lock.flush();
             eprintln!("Sent to {peer_addr}")
         });
         send_msg = false;
-        next_grid(&state);
+        next_grid();
         let _ = send_grid(&state);
         state.frame = state.frame + 1;
         let diff = Duration::from_millis(MS_PER_FRAME as u64) - Instant::now().duration_since(clock);
