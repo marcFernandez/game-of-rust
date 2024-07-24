@@ -1,6 +1,7 @@
 # Online Game of Life
 
-Implementation of [Game of Life]() in Rust. Server sends the grid to all connected clients each frame.
+Implementation of [Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) in Rust. Server sends the grid
+to all connected clients each frame.
 
 ![Four terminal panes synchronized](assets/demo.gif)
 
@@ -47,10 +48,18 @@ of data x8 times:
   // CGRID = [b00100010, ...] -> 10 bytes
 ```
 
+## WebSocket implementation
+
+So I went down the rabbit hole of implementing the websocket protocol (partially to support web client). I'm following
+the [wikipedia site](https://en.wikipedia.org/wiki/WebSocket).
+
 ### TODO
 
 - [X] ~Implement protocol to send/recv data~
 - [X] ~Send grid as bit per cell instead of byte per cell~
+- [ ] Raw websocket protocol implementation
+- [ ] Map clients to protocol for message sending
+- [ ] Frontend client implementation
 - [ ] Handle client errors
 - [ ] Update client pool when client disconnects
 - [ ] Improve file logging and create `--debug` flag
