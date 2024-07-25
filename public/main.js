@@ -11,7 +11,13 @@ ws.addEventListener("open", (e) => {
 
 ws.addEventListener("message", (e) => {
   console.log(e);
-  console.log(e.data);
+  console.log(typeof e.data);
+  console.log(e.data instanceof Blob);
+  if (e.data instanceof Blob) {
+    console.log(e.data);
+    let d = e.data.text().then(console.log);
+    console.log(d);
+  }
 });
 
 ws.addEventListener("error", (e) => {
