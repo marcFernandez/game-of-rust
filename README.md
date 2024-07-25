@@ -64,3 +64,4 @@ the [wikipedia site](https://en.wikipedia.org/wiki/WebSocket).
 - [ ] Update client pool when client disconnects
 - [ ] Improve file logging and create `--debug` flag
 - [ ] Allow multiple message sending from server per frame
+- [ ] Server to log a QR code for web clients to use (?)

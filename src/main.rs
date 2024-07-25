@@ -2,6 +2,7 @@ use core::panic;
 use std::{
     io::{BufRead, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
+    thread,
 };
 
 use base64::{engine::general_purpose, Engine};
@@ -18,7 +19,9 @@ fn main() {
     for stream in listener.incoming() {
         let stream = stream.unwrap();
         eprintln!("Connection established from {}", stream.peer_addr().unwrap());
-        handle_connection(stream);
+        thread::spawn(|| {
+            handle_connection(stream);
+        });
     }
 }
 
@@ -116,5 +119,30 @@ fn handle_connection(mut stream: TcpStream) {
 
         let string = String::from_utf8(data[0..(content_length as usize)].to_vec()).unwrap();
         println!("data: {string}");
+
+        if string.len() > 128 - "echo: ".len() {
+            todo!("Handle echo of larger chunks of data");
+        }
+
+        send_msg(&mut stream, &string.as_bytes());
     }
+}
+
+fn send_msg(stream: &mut TcpStream, data: &[u8]) {
+    let header: u8 = 0b10000010;
+    // Server must send unmasked (mask=0) messages
+    let masked_and_content_length: u8 = (data.len() + "echo: ".len()) as u8;
+
+    let mut response: Vec<u8> = Vec::new();
+
+    response.push(header);
+    response.push(masked_and_content_length);
+    "echo: ".as_bytes().iter().for_each(|c| {
+        response.push(*c);
+    });
+    data.iter().for_each(|u| {
+        response.push(*u);
+    });
+
+    stream.write_all(&response).expect("Data to be sent");
 }
