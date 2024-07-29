@@ -57,6 +57,8 @@ the [wikipedia site](https://en.wikipedia.org/wiki/WebSocket).
 **Update**: Server is able to speak websocket language now. Frontend is able to parse dimensions and new_grid commands
 and draw the board on HTMLCanvas.
 
+![Terminal and web frontend synchronized](assets/demo_frontend.gif)
+
 ### Client setup
 
 1. Compile `main.ts`:
