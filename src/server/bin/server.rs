@@ -8,8 +8,10 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{poll, read, Event, KeyCode};
 use gol_multi::game::{create_state, next_grid, State, GRID, GRID_HEIGHT, GRID_WIDTH, MS_PER_FRAME, PREV_GRID};
-use gol_multi::net::{compress_grid, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE};
-use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
+use gol_multi::net::{
+    compress_grid, handle_ws_connection, send_ws_msg, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE,
+};
+use gol_multi::term::{end_terminal, render, render_debug_data, render_txt, reset_terminal, start_terminal};
 
 static mut ACTIVE_CONNECTIONS: u64 = 0;
 
@@ -23,9 +25,10 @@ fn main() -> Result<()> {
         thread::spawn(move || {
             let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
             for stream in listener.incoming() {
-                let stream = stream.unwrap();
+                let mut stream = stream.unwrap();
                 eprintln!("Connection established from {}", stream.peer_addr().unwrap());
                 ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
+                stream = handle_ws_connection(stream);
                 streams_clone.lock().unwrap().push(Mutex::new(stream));
             }
         });
@@ -97,6 +100,7 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
         }
 
         render()?;
+        //render_txt()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
 
         if send_msg {
@@ -116,13 +120,17 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
             // TODO: Handle connection errors/dcs
             let peer_addr = stream_lock.peer_addr().expect("Peer addr to be available");
             eprintln!("Sending to {peer_addr}");
-            let _ = stream_lock.write(&cmd_msg);
-            let _ = stream_lock.write(&size_msg);
-            if send_msg {
-                let _ = stream_lock.write(&log_msg.as_bytes());
+            let is_ws = true;
+            if is_ws {
+                send_ws_msg(&mut stream_lock, &cmd_msg, &size_msg, &grid_msg);
             } else {
-                // TODO: Send grid as bit per cell instead of byte per cell
-                let _ = stream_lock.write(&grid_msg);
+                let _ = stream_lock.write(&cmd_msg);
+                let _ = stream_lock.write(&size_msg);
+                if send_msg {
+                    let _ = stream_lock.write(&log_msg.as_bytes());
+                } else {
+                    let _ = stream_lock.write(&grid_msg);
+                }
             }
             let _ = stream_lock.flush();
             eprintln!("Sent to {peer_addr}")

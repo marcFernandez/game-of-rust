@@ -124,7 +124,9 @@ fn handle_connection(mut stream: TcpStream) {
             todo!("Handle echo of larger chunks of data");
         }
 
+        println!("Sending echo reply");
         send_msg(&mut stream, &string.as_bytes());
+        println!("Sent echo reply");
     }
 }
 
@@ -143,6 +145,21 @@ fn send_msg(stream: &mut TcpStream, data: &[u8]) {
     data.iter().for_each(|u| {
         response.push(*u);
     });
+
+    stream.write_all(&response).expect("Data to be sent");
+}
+
+fn send_dimensions(stream: &mut TcpStream) {}
+
+fn send_ping(stream: &mut TcpStream) {
+    let header: u8 = 0b10000000 & 9;
+    // Server must send unmasked (mask=0) messages
+    let masked_and_content_length: u8 = 0;
+
+    let mut response: Vec<u8> = Vec::new();
+
+    response.push(header);
+    response.push(masked_and_content_length);
 
     stream.write_all(&response).expect("Data to be sent");
 }
