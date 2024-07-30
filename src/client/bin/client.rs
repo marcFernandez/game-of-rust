@@ -13,7 +13,7 @@ use std::{
 fn main() -> Result<()> {
     let mut args = args().skip(1);
     let mut host = String::from("0.0.0.0");
-    let mut port = String::from("42069");
+    let mut port = String::from("42068");
     while let Some(next) = args.next() {
         match next.as_str() {
             "-p" => match args.next() {

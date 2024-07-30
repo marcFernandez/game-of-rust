@@ -11,7 +11,7 @@ use gol_multi::game::{create_state, next_grid, State, GRID, GRID_HEIGHT, GRID_WI
 use gol_multi::net::{
     compress_grid, handle_ws_connection, send_ws_msg, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE,
 };
-use gol_multi::term::{end_terminal, render, render_debug_data, render_txt, reset_terminal, start_terminal};
+use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
 
 static mut ACTIVE_CONNECTIONS: u64 = 0;
 
@@ -19,29 +19,45 @@ fn main() -> Result<()> {
     println!("Hello, server!");
 
     let streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
+    let ws_streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
 
     unsafe {
         let streams_clone = Arc::clone(&streams);
         thread::spawn(move || {
+            let listener = TcpListener::bind("0.0.0.0:42068").unwrap();
+            for stream in listener.incoming() {
+                let stream = stream.unwrap();
+                eprintln!("Connection established from {}", stream.peer_addr().unwrap());
+                ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
+                streams_clone.lock().unwrap().push(Mutex::new(stream));
+            }
+        });
+        let ws_streams_clone = Arc::clone(&ws_streams);
+        thread::spawn(move || {
             let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
-                eprintln!("Connection established from {}", stream.peer_addr().unwrap());
+                eprintln!("WS connection established from {}", stream.peer_addr().unwrap());
                 ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
                 stream = handle_ws_connection(stream);
-                streams_clone.lock().unwrap().push(Mutex::new(stream));
+                ws_streams_clone.lock().unwrap().push(Mutex::new(stream));
             }
         });
 
         let streams_clone2 = Arc::clone(&streams);
+        let ws_streams_clone2 = Arc::clone(&ws_streams);
         let state: State = create_state();
-        run(state, streams_clone2)?;
+        run(state, streams_clone2, ws_streams_clone2)?;
     }
 
     Ok(())
 }
 
-unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> Result<()> {
+unsafe fn run(
+    mut state: State,
+    streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>,
+    ws_streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>,
+) -> Result<()> {
     start_terminal()?;
     /* GLIDER */
     GRID[1 + GRID_WIDTH * 3] = 1;
@@ -120,18 +136,23 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
             // TODO: Handle connection errors/dcs
             let peer_addr = stream_lock.peer_addr().expect("Peer addr to be available");
             eprintln!("Sending to {peer_addr}");
-            let is_ws = true;
-            if is_ws {
-                send_ws_msg(&mut stream_lock, &cmd_msg, &size_msg, &grid_msg);
+            let _ = stream_lock.write(&cmd_msg);
+            let _ = stream_lock.write(&size_msg);
+            if send_msg {
+                let _ = stream_lock.write(&log_msg.as_bytes());
             } else {
-                let _ = stream_lock.write(&cmd_msg);
-                let _ = stream_lock.write(&size_msg);
-                if send_msg {
-                    let _ = stream_lock.write(&log_msg.as_bytes());
-                } else {
-                    let _ = stream_lock.write(&grid_msg);
-                }
+                let _ = stream_lock.write(&grid_msg);
             }
+
+            let _ = stream_lock.flush();
+            eprintln!("Sent to {peer_addr}")
+        });
+        ws_streams.lock().unwrap().iter().for_each(|stream| {
+            let mut stream_lock = stream.lock().unwrap();
+            // TODO: Handle connection errors/dcs
+            let peer_addr = stream_lock.peer_addr().expect("Peer addr to be available");
+            eprintln!("Sending to {peer_addr}");
+            send_ws_msg(&mut stream_lock, &cmd_msg, &size_msg, &grid_msg);
             let _ = stream_lock.flush();
             eprintln!("Sent to {peer_addr}")
         });
