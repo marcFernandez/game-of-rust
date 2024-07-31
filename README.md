@@ -21,13 +21,14 @@ Server and client use TcpStreams to communicate. The message format is:
 
 - 0x00: New grid
 - 0x01: Log message
+- 0x02: Grid dimensions
 - 0x02-0xFF: Unused
 
 Example new grid message:
 
 ```text
-  command   | size      | content
-  0000 0000 | 1100 0100 | 0000 ... 0000
+  command   | size           | content
+  0000 0000 | 0x00 1100 0100 | 0000 ... 0000
 ```
 
 ### Grid encoding
@@ -53,15 +54,40 @@ of data x8 times:
 So I went down the rabbit hole of implementing the websocket protocol (partially to support web client). I'm following
 the [wikipedia site](https://en.wikipedia.org/wiki/WebSocket).
 
+**Update**: Server is able to speak websocket language now. Frontend is able to parse dimensions and new_grid commands
+and draw the board on HTMLCanvas.
+
+![Terminal and web frontend synchronized](assets/demo_frontend.gif)
+
+### Client setup
+
+1. Compile `main.ts`:
+
+```bash
+npx tsc main.ts
+```
+
+2. Start the server:
+
+```bash
+cargo run --bin server 2> server.log
+```
+
+3. Open frontend in browser: `file://<path_to_repo>/public/index.html`
+
 ### TODO
+
+> Those are in order of priority, but it can always change ¯\_(ツ)_/¯
 
 - [X] ~Implement protocol to send/recv data~
 - [X] ~Send grid as bit per cell instead of byte per cell~
-- [ ] Raw websocket protocol implementation
-- [ ] Map clients to protocol for message sending
-- [ ] Frontend client implementation
+- [X] ~Update client pool when client disconnects~
+- [X] ~Map clients to protocol for message sending~
+- [ ] **wip**: Frontend client implementation
+- [ ] **wip**: Raw websocket protocol implementation
+  - [X] ~Basic implementation for small messages~
+  - [ ] Write and read messages larger than 127 bytes
 - [ ] Handle client errors
-- [ ] Update client pool when client disconnects
+- [ ] Server to log a QR code for web clients to use (inspired by **tj_deev** [Writing a QR Code Generator in Go](https://www.youtube.com/watch?v=71SO8NB2ghU))
 - [ ] Improve file logging and create `--debug` flag
-- [ ] Allow multiple message sending from server per frame
-- [ ] Server to log a QR code for web clients to use (?)
+- [ ] Allow multiple message sending from server per frame (?)

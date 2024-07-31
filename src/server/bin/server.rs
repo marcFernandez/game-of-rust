@@ -8,7 +8,9 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{poll, read, Event, KeyCode};
 use gol_multi::game::{create_state, next_grid, State, GRID, GRID_HEIGHT, GRID_WIDTH, MS_PER_FRAME, PREV_GRID};
-use gol_multi::net::{compress_grid, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE};
+use gol_multi::net::{
+    compress_grid, handle_ws_connection, send_ws_msg, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE,
+};
 use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
 
 static mut ACTIVE_CONNECTIONS: u64 = 0;
@@ -17,28 +19,46 @@ fn main() -> Result<()> {
     println!("Hello, server!");
 
     let streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
+    let ws_streams: Arc<Mutex<Vec<Mutex<TcpStream>>>> = Arc::new(Mutex::new(Vec::with_capacity(10)));
 
     unsafe {
+        // TODO: Abstract and pass in handle_connection fn
         let streams_clone = Arc::clone(&streams);
         thread::spawn(move || {
-            let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
+            let listener = TcpListener::bind("0.0.0.0:42068").unwrap();
             for stream in listener.incoming() {
                 let stream = stream.unwrap();
                 eprintln!("Connection established from {}", stream.peer_addr().unwrap());
-                ACTIVE_CONNECTIONS = ACTIVE_CONNECTIONS + 1;
+                ACTIVE_CONNECTIONS += 1;
                 streams_clone.lock().unwrap().push(Mutex::new(stream));
+            }
+        });
+        let ws_streams_clone = Arc::clone(&ws_streams);
+        thread::spawn(move || {
+            let listener = TcpListener::bind("0.0.0.0:42069").unwrap();
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                eprintln!("WS connection established from {}", stream.peer_addr().unwrap());
+                ACTIVE_CONNECTIONS += 1;
+                stream = handle_ws_connection(stream);
+                ws_streams_clone.lock().unwrap().push(Mutex::new(stream));
             }
         });
 
         let streams_clone2 = Arc::clone(&streams);
+        let ws_streams_clone2 = Arc::clone(&ws_streams);
         let state: State = create_state();
-        run(state, streams_clone2)?;
+        run(state, streams_clone2, ws_streams_clone2)?;
     }
 
     Ok(())
 }
 
-unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> Result<()> {
+unsafe fn run(
+    mut state: State,
+    streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>,
+    ws_streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>,
+) -> Result<()> {
     start_terminal()?;
     /* GLIDER */
     GRID[1 + GRID_WIDTH * 3] = 1;
@@ -97,6 +117,7 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
         }
 
         render()?;
+        //render_txt()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
 
         if send_msg {
@@ -111,25 +132,45 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
         eprintln!("Sending cmd_msg: {:?}", cmd_msg);
         eprintln!("Sending size_msg: {:?}", size_msg);
 
-        streams.lock().unwrap().iter().for_each(|stream| {
+        // TODO: Do something about this crap
+        streams.lock().unwrap().retain(|stream| {
             let mut stream_lock = stream.lock().unwrap();
             // TODO: Handle connection errors/dcs
-            let peer_addr = stream_lock.peer_addr().expect("Peer addr to be available");
-            eprintln!("Sending to {peer_addr}");
+            let peer_addr = stream_lock.peer_addr();
+            if peer_addr.is_err() {
+                ACTIVE_CONNECTIONS -= 1;
+                return false;
+            }
+            let peer_addr = peer_addr.unwrap();
             let _ = stream_lock.write(&cmd_msg);
             let _ = stream_lock.write(&size_msg);
             if send_msg {
                 let _ = stream_lock.write(&log_msg.as_bytes());
             } else {
-                // TODO: Send grid as bit per cell instead of byte per cell
                 let _ = stream_lock.write(&grid_msg);
             }
+
             let _ = stream_lock.flush();
-            eprintln!("Sent to {peer_addr}")
+            eprintln!("Sent to {peer_addr}");
+            return true;
+        });
+        ws_streams.lock().unwrap().retain(|stream| {
+            let mut stream_lock = stream.lock().unwrap();
+            // TODO: Handle connection errors/dcs
+            let peer_addr = stream_lock.peer_addr();
+            if peer_addr.is_err() {
+                ACTIVE_CONNECTIONS -= 1;
+                return false;
+            }
+            let peer_addr = peer_addr.unwrap();
+            eprintln!("Sending to {peer_addr}");
+            send_ws_msg(&mut stream_lock, &cmd_msg, &size_msg, &grid_msg);
+            let _ = stream_lock.flush();
+            eprintln!("Sent to {peer_addr}");
+            return true;
         });
         send_msg = false;
         next_grid();
-        let _ = send_grid(&state);
         state.frame = state.frame + 1;
         let diff = Duration::from_millis(MS_PER_FRAME as u64) - Instant::now().duration_since(clock);
         if diff.as_millis() > 0 {
@@ -138,8 +179,4 @@ unsafe fn run(mut state: State, streams: Arc<Mutex<Vec<Mutex<TcpStream>>>>) -> R
     }
     end_terminal()?;
     return Ok(());
-}
-
-fn send_grid(_state: &State) -> Result<()> {
-    Ok(())
 }
