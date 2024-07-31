@@ -1,31 +1,40 @@
-let ws = new WebSocket("ws://0.0.0.0:42069");
+let ws: WebSocket;
 
 const LOGIN_KEY = "zz";
 
-ws.addEventListener("open", (_e) => {
-  console.log(`Connected`);
-  let utf8Encode = new TextEncoder();
-  let data = utf8Encode.encode(LOGIN_KEY);
-  // console.log(data.byteLength);
-  // console.log(data);
-  ws.send(data);
-});
+function setUpWebSocket() {
+  console.info("Starting ws connection");
+  ws = new WebSocket("ws://0.0.0.0:42069");
+  ws.addEventListener("open", (_e) => {
+    console.debug(`Connected`);
+    let utf8Encode = new TextEncoder();
+    let data = utf8Encode.encode(LOGIN_KEY);
+    // console.debug(data.byteLength);
+    // console.debug(data);
+    ws.send(data);
+  });
 
-ws.addEventListener("message", (e) => {
-  if (e.data instanceof Blob) {
-    e.data.arrayBuffer().then(parseData);
-  } else {
-    console.log(e.data);
-  }
-});
+  ws.addEventListener("message", (e) => {
+    if (e.data instanceof Blob) {
+      e.data.arrayBuffer().then(parseData);
+    } else {
+      console.debug(e.data);
+    }
+  });
 
-ws.addEventListener("error", (e) => {
-  console.log(e);
-});
+  ws.addEventListener("error", (e) => {
+    console.debug(e);
+  });
 
-ws.addEventListener("close", (e) => {
-  console.log(`close: code[${e.code}] reason[${e.reason}]`);
-});
+  ws.addEventListener("close", (e) => {
+    console.info(`close: code[${e.code}] reason[${e.reason}]`);
+    setTimeout(() => {
+      setUpWebSocket();
+    }, 5_000);
+  });
+}
+
+setUpWebSocket();
 
 const CELL_WIDTH = 100;
 const CELL_HEIGHT = CELL_WIDTH;
@@ -42,32 +51,32 @@ const SIZE_SIZE = 2;
 const MSG_IDX = 3;
 
 function parseData(data: ArrayBuffer) {
-  console.log("------------------");
-  console.log(`Parsing ArrayBuffer: `, data);
+  console.debug("------------------");
+  console.debug(`Parsing ArrayBuffer: `, data);
   const view = new DataView(data);
 
   const cmd = view.getUint8(CMD_IDX);
   const size = view.getUint16(SIZE_IDX);
   const msg_view = new DataView(data, 3, size);
 
-  console.log(`Received cmd[${cmd}]`);
+  console.debug(`Received cmd[${cmd}]`);
 
   msgProcessor[cmd](msg_view);
-  console.log("------------------");
+  console.debug("------------------");
 }
 
 const msgProcessor = {
   0: newGrid,
-  1: logMsg,
+  1: debugMsg,
   2: dimensions,
 };
 
-function logMsg(data: DataView) {}
+function debugMsg(_data: DataView) {}
 
 function dimensions(data: DataView) {
   const width = data.getUint16(0);
   const height = data.getUint16(2);
-  console.log(`Grid dimensions: [${width}, ${height}]`);
+  console.debug(`Grid dimensions: [${width}, ${height}]`);
   GRID = new Array(width * height);
   canvas.width = width * CELL_WIDTH;
   canvas.height = height * CELL_HEIGHT;
@@ -76,14 +85,14 @@ function dimensions(data: DataView) {
 }
 
 function newGrid(data: DataView) {
-  console.log(`New grid received`);
+  console.debug(`New grid received`);
   for (let i = 0; i < data.byteLength; i++) {
     let byte = data.getUint8(i);
     for (let bit = 0; bit < 8; bit++) {
       GRID[i * 8 + bit] = (byte >> bit) & 0x01;
     }
   }
-  console.log(GRID);
+  console.debug(GRID);
   logGrid();
   drawGrid();
 }
@@ -96,7 +105,7 @@ function logGrid() {
     }
     gridStr += "\n";
   }
-  console.log(gridStr);
+  console.debug(gridStr);
 }
 
 function drawGrid() {
