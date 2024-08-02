@@ -36,8 +36,8 @@ function setUpWebSocket() {
 
 setUpWebSocket();
 
-const CELL_WIDTH = 100;
-const CELL_HEIGHT = CELL_WIDTH;
+let CELL_WIDTH = 100;
+let CELL_HEIGHT = CELL_WIDTH;
 
 const canvas = document.getElementById("canvas")! as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
@@ -77,6 +77,16 @@ function dimensions(data: DataView) {
   const width = data.getUint16(0);
   const height = data.getUint16(2);
   console.debug(`Grid dimensions: [${width}, ${height}]`);
+  let vw = Math.max(
+    document.documentElement.clientWidth || 0,
+    window.innerWidth || 0,
+  );
+  let vh = Math.max(
+    document.documentElement.clientHeight || 0,
+    window.innerHeight || 0,
+  );
+  CELL_WIDTH = vw / width;
+  CELL_HEIGHT = vh / height;
   GRID = new Array(width * height);
   canvas.width = width * CELL_WIDTH;
   canvas.height = height * CELL_HEIGHT;

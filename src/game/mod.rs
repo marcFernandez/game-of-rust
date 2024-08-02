@@ -14,8 +14,10 @@ pub struct State {
     pub frame: usize,
 }
 
-pub const GRID_WIDTH: usize = 10;
-pub const GRID_HEIGHT: usize = 8;
+//pub const GRID_WIDTH: usize = 10;
+//pub const GRID_HEIGHT: usize = 8;
+pub const GRID_WIDTH: usize = 48;
+pub const GRID_HEIGHT: usize = 31;
 
 pub const FPS: usize = 5;
 pub const MS_PER_FRAME: usize = 1000 / FPS;
@@ -44,22 +46,13 @@ pub fn create_state() -> State {
 }
 
 pub unsafe fn next_grid() {
-    //let mut log = String::new();
     for y in 0..(GRID_HEIGHT as usize) {
         for x in 0..(GRID_WIDTH as usize) {
             let prev_val = GRID[x + GRID_WIDTH * y];
             let new_val = compute_neighbors(GRID[x + GRID_WIDTH * y], x, y);
-            if prev_val != new_val || prev_val > 0 {
-                //log.push_str(format!("[{}, {}] {} -> {}\n", x, y, prev_val, new_val).as_str());
-            }
             GRID[x + GRID_WIDTH * y] = new_val;
         }
     }
-    //let mut file = OpenOptions::new().write(true).append(true).open("exec.log").unwrap();
-
-    //if let Err(e) = writeln!(file, "{}", log) {
-    //eprintln!("Couldn't write to file: {}", e);
-    //}
     for i in 0..(GRID_WIDTH * GRID_HEIGHT) {
         PREV_GRID[i] = GRID[i];
     }

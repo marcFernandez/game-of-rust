@@ -106,15 +106,15 @@ pub fn handle_ws_connection(mut stream: TcpStream) -> TcpStream {
 
     let mut one_byte: [u8; 1] = [0; 1];
     let mut two_bytes: [u8; 2] = [0; 2];
-    let mut four_bytes: [u8; 4] = [0; 4];
+    let _four_bytes: [u8; 4] = [0; 4];
 
-    let mut fin: u8 = 0;
-    let mut rsv1: u8 = 0;
-    let mut rsv2: u8 = 0;
-    let mut rsv3: u8 = 0;
-    let mut opcode: u8 = 0;
-    let mut masked: u8 = 0;
-    let mut content_length: u64 = 0;
+    let fin: u8;
+    let rsv1: u8;
+    let rsv2: u8;
+    let rsv3: u8;
+    let opcode: u8;
+    let masked: u8;
+    let mut content_length: u64;
     let mut mask: [u8; 4] = [0; 4];
 
     let mut data: [u8; 128] = [0; 128];
@@ -179,14 +179,28 @@ pub fn handle_ws_connection(mut stream: TcpStream) -> TcpStream {
 }
 
 pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8]) {
-    let header: u8 = 0b10000010;
-    // Server must send unmasked (mask=0) messages
-    let masked_and_content_length: u8 = (cmd.len() + size.len() + data.len()) as u8;
-
     let mut response: Vec<u8> = Vec::new();
 
+    let header: u8 = 0b10000010;
     response.push(header);
-    response.push(masked_and_content_length);
+
+    let content_length: u64 = (cmd.len() + size.len() + data.len()) as u64;
+
+    // Server must send unmasked (mask=0) messages
+    if content_length < 126 {
+        let masked_and_content_length: u8 = (cmd.len() + size.len() + data.len()) as u8;
+        response.push(masked_and_content_length);
+    } else if content_length < 1_048_576 {
+        response.push(126);
+        response.push((content_length >> 8) as u8);
+        response.push(content_length as u8);
+    } else if content_length < u64::MAX {
+        response.push(127);
+        todo!("I don't think that'll be needed")
+    } else {
+        todo!("Split message into several frames")
+    }
+
     cmd.iter().for_each(|u| {
         response.push(*u);
     });
