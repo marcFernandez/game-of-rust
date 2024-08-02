@@ -188,8 +188,7 @@ pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8])
 
     // Server must send unmasked (mask=0) messages
     if content_length < 126 {
-        let masked_and_content_length: u8 = (cmd.len() + size.len() + data.len()) as u8;
-        response.push(masked_and_content_length);
+        response.push(content_length as u8);
     } else if content_length < 1_048_576 {
         response.push(126);
         response.push((content_length >> 8) as u8);
@@ -211,6 +210,47 @@ pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8])
         response.push(*u);
     });
 
+    stream.write_all(&response).expect("Data to be sent");
+}
+
+pub fn send_ws_msg_text(stream: &mut TcpStream, message: &str) {
+    let mut response: Vec<u8> = Vec::new();
+
+    let header: u8 = 0b10000010;
+    response.push(header);
+
+    let content_length: u64 = (CMD_HEADER_SIZE + SIZE_HEADER_SIZE + message.len()) as u64;
+
+    // Server must send unmasked (mask=0) messages
+    if content_length < 126 {
+        response.push(content_length as u8);
+    } else if content_length < 1_048_576 {
+        response.push(126);
+        response.push((content_length >> 8) as u8);
+        response.push(content_length as u8);
+    } else if content_length < u64::MAX {
+        response.push(127);
+        todo!("I don't think that'll be needed")
+    } else {
+        todo!("Split message into several frames")
+    }
+
+    response.push(CMD_LOG_MSG);
+    // TODO: probably it makes sense to error if len does not fit in 16 bits
+    [(message.len() >> 8) as u8, message.len() as u8]
+        .iter()
+        .for_each(|u| {
+            response.push(*u);
+        });
+
+    eprint!("\nSending: ");
+    message.chars().for_each(|c| {
+        eprint!("{c}");
+        response.push(c as u8);
+    });
+    eprint!("\n");
+
+    eprintln!("{:?}", response);
     stream.write_all(&response).expect("Data to be sent");
 }
 

@@ -9,7 +9,8 @@ use std::time::{Duration, Instant};
 use crossterm::event::{poll, read, Event, KeyCode};
 use gol_multi::game::{create_state, next_grid, State, GRID, GRID_HEIGHT, GRID_WIDTH, MS_PER_FRAME, PREV_GRID};
 use gol_multi::net::{
-    compress_grid, handle_ws_connection, send_ws_msg, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, SIZE_HEADER_SIZE,
+    compress_grid, handle_ws_connection, send_ws_msg, send_ws_msg_text, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID,
+    SIZE_HEADER_SIZE,
 };
 use gol_multi::term::{end_terminal, render, render_debug_data, reset_terminal, start_terminal};
 
@@ -89,7 +90,7 @@ unsafe fn run(
 
     let mut cmd_msg: [u8; CMD_HEADER_SIZE];
     let mut size_msg: [u8; SIZE_HEADER_SIZE];
-    let mut grid_msg: [u8; (GRID_WIDTH * GRID_HEIGHT) / 8] = [0; (GRID_WIDTH * GRID_HEIGHT) / 8];
+    let mut grid_msg: [u8; (GRID_WIDTH * GRID_HEIGHT) / 8];
 
     let mut send_msg = false;
     let log_msg = "This is a test log message";
@@ -97,7 +98,7 @@ unsafe fn run(
 
     loop {
         clock = Instant::now();
-        if poll(Duration::from_millis((MS_PER_FRAME as f64 * 0.5) as u64))? {
+        if poll(Duration::from_millis((MS_PER_FRAME as f64 * 0.2) as u64))? {
             match read()? {
                 Event::Key(event) => match event.code {
                     KeyCode::Char('q') => {
@@ -120,15 +121,11 @@ unsafe fn run(
         //render_txt()?;
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
 
-        if send_msg {
-            cmd_msg = CMD_LOG_MSG.to_be_bytes();
-            size_msg = [(log_msg_size >> 8 & 0xFF) as u8, (log_msg_size & 0xFF) as u8];
-        } else {
-            cmd_msg = CMD_NEW_GRID.to_be_bytes();
-            size_msg = (((GRID_WIDTH * GRID_HEIGHT) / 8) as u16).to_be_bytes();
-            grid_msg = compress_grid();
-            eprintln!("Sending content_msg: {:?}", grid_msg);
-        }
+        cmd_msg = CMD_NEW_GRID.to_be_bytes();
+        size_msg = (((GRID_WIDTH * GRID_HEIGHT) / 8) as u16).to_be_bytes();
+        grid_msg = compress_grid();
+        eprintln!("Sending content_msg: {:?}", grid_msg);
+
         eprintln!("Sending cmd_msg: {:?}", cmd_msg);
         eprintln!("Sending size_msg: {:?}", size_msg);
 
@@ -144,10 +141,13 @@ unsafe fn run(
             let peer_addr = peer_addr.unwrap();
             let _ = stream_lock.write(&cmd_msg);
             let _ = stream_lock.write(&size_msg);
+            let _ = stream_lock.write(&grid_msg);
             if send_msg {
+                cmd_msg = CMD_LOG_MSG.to_be_bytes();
+                size_msg = [(log_msg_size >> 8 & 0xFF) as u8, (log_msg_size & 0xFF) as u8];
+                let _ = stream_lock.write(&cmd_msg);
+                let _ = stream_lock.write(&size_msg);
                 let _ = stream_lock.write(&log_msg.as_bytes());
-            } else {
-                let _ = stream_lock.write(&grid_msg);
             }
 
             let _ = stream_lock.flush();
@@ -165,7 +165,10 @@ unsafe fn run(
             let peer_addr = peer_addr.unwrap();
             eprintln!("Sending to {peer_addr}");
             send_ws_msg(&mut stream_lock, &cmd_msg, &size_msg, &grid_msg);
-            let _ = stream_lock.flush();
+            if send_msg {
+                send_ws_msg_text(&mut stream_lock, &log_msg);
+            }
+            //let _ = stream_lock.flush();
             eprintln!("Sent to {peer_addr}");
             return true;
         });

@@ -19,7 +19,7 @@ pub struct State {
 pub const GRID_WIDTH: usize = 48;
 pub const GRID_HEIGHT: usize = 31;
 
-pub const FPS: usize = 5;
+pub const FPS: usize = 10;
 pub const MS_PER_FRAME: usize = 1000 / FPS;
 pub const CELL: &str = "  ";
 

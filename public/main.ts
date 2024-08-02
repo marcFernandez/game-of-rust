@@ -38,6 +38,8 @@ setUpWebSocket();
 
 let CELL_WIDTH = 100;
 let CELL_HEIGHT = CELL_WIDTH;
+let GRID_WIDTH = 100;
+let GRID_HEIGHT = 100;
 
 const canvas = document.getElementById("canvas")! as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
@@ -71,12 +73,11 @@ const msgProcessor = {
   2: dimensions,
 };
 
-function debugMsg(_data: DataView) {}
+function debugMsg(data: DataView) {
+  console.log(new TextDecoder().decode(data));
+}
 
-function dimensions(data: DataView) {
-  const width = data.getUint16(0);
-  const height = data.getUint16(2);
-  console.debug(`Grid dimensions: [${width}, ${height}]`);
+function resizeHandler() {
   let vw = Math.max(
     document.documentElement.clientWidth || 0,
     window.innerWidth || 0,
@@ -85,8 +86,25 @@ function dimensions(data: DataView) {
     document.documentElement.clientHeight || 0,
     window.innerHeight || 0,
   );
-  CELL_WIDTH = vw / width;
-  CELL_HEIGHT = vh / height;
+  CELL_WIDTH = vw / GRID_WIDTH;
+  CELL_HEIGHT = vh / GRID_HEIGHT;
+  canvas.width = GRID_WIDTH * CELL_WIDTH;
+  canvas.height = GRID_HEIGHT * CELL_HEIGHT;
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+document.documentElement.onresize = resizeHandler;
+window.onresize = resizeHandler;
+document.onresize = resizeHandler;
+
+function dimensions(data: DataView) {
+  const width = data.getUint16(0);
+  const height = data.getUint16(2);
+  console.debug(`Grid dimensions: [${width}, ${height}]`);
+  GRID_WIDTH = width;
+  GRID_HEIGHT = height;
+  resizeHandler();
   GRID = new Array(width * height);
   canvas.width = width * CELL_WIDTH;
   canvas.height = height * CELL_HEIGHT;
