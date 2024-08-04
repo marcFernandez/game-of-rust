@@ -105,6 +105,9 @@ bytes that follow.
 let rle_grid = [3, "1", "0", "2", "z", ...]; // 22 B + 7 B = 29 B
 ```
 
+Using RLE, we get rid of the constraint of grid_width*grid_height having to be divisible by 8 (or handle uncompleted
+bytes by padding).
+
 #### Some encoding comparison
 
 A glider leads to a encoded 10x8 grid size:
@@ -162,7 +165,7 @@ cargo run --bin server 2> server.log
 - [X] ~Raw websocket protocol implementation~
   - [X] ~Basic implementation for small messages~
   - [ ] Write and read messages larger than 2^23 bytes
-- [ ] RLE encoding
+- [X] ~RLE encoding~
 - [ ] Send relevant info to clients (i.e: active connections)
 - [ ] Gracefully handle client errors
 - [ ] Server to log a QR code for web clients to use (inspired by **tj_deev** [Writing a QR Code Generator in Go](https://www.youtube.com/watch?v=71SO8NB2ghU))
