@@ -31,7 +31,7 @@ Example new grid message:
   0000 0000 | 0x00 1100 0100 | 0000 ... 0000
 ```
 
-### Grid encoding
+### Grid encoding (first approach)
 
 Initially, I was sending the grid as a String representation of the cells' state. A single cell was taking one entire
 byte over the network ('0' was encoded as 0x30 [Ref](https://en.wikipedia.org/wiki/ASCII#Printable_characters)):
@@ -48,6 +48,66 @@ of data x8 times:
   //  GRID = ["0", "0", "1", "0", "0", "0", "1", "0", ...] -> 80 elems
   // CGRID = [b00100010, ...] -> 10 bytes
 ```
+
+### Grid encoding (new approach)
+
+After watching ThePrimeagen's video [1000 Players - One Game of Doom](https://www.youtube.com/watch?v=3f9tbqSIm-E), I
+thought RLE could be a great fit because:
+
+- Grid is represented as a sequence of bits.
+- Most of the consecutive elements have the same value
+
+RLE consists on grouping the consecutive elements with the same value together. For instance, the following 4x4 grid:
+
+```rust
+let GRID = ["0", "0", "0", "0",
+            "0", "1", "1", "1",
+            "0", "0", "0", "0",
+            "0", "0", "0", "0"];
+```
+
+Would be encoded as:
+
+```rust
+let rle_grid = "5z3o8z"; // 5 zeros 3 ones 8 zeros
+```
+
+Compared to the binary approach, for this scenario we'd be using 6 bytes instead of 2:
+
+```rust
+let raw_grid = GRID; // 16 bytes
+let rle_grid = "5z3o8z"; // 6 bytes
+let binary_grid = [7, 0]; // 2 bytes
+```
+
+Binary encoding takes less space than RLE, but this can be different for larger ones:
+
+```rust
+/* GRID size 100x80
+
+   0 0 0 0 0 0 0 ... 0
+   .   1             .
+   .     1           .
+   . 1 1 1           .
+   .                 .
+   0 0 0 0 0 0 0 ... 0
+*/
+
+let binary_grid = [0, 0, 3, ...]; // 1 KB
+let rle_grid = "102z1o100z1o97z3o7696z"; // 22 B
+```
+
+We have a problem tho, because we cannot differentiate between "number" and "value" bytes. To
+address that problem, let's prefix each "number" bytes with a byte denoting the amount of "number"
+bytes that follow.
+
+```rust
+let rle_grid = [3, "1", "0", "2", "z", ...]; // 22 B + 7 B = 29 B
+```
+
+#### Some encoding comparison
+
+WIP
 
 ## WebSocket implementation
 
