@@ -107,7 +107,16 @@ let rle_grid = [3, "1", "0", "2", "z", ...]; // 22 B + 7 B = 29 B
 
 #### Some encoding comparison
 
-WIP
+A glider leads to a encoded 10x8 grid size:
+
+|element|grid dimensions|encoding|avg encoded size (bytes)|
+|---|---|---|---|
+|glider|48x10|none|480|
+|glider|48x10|binary|60|
+|glider|48x10|RLE|24|
+|glider|48x31|none|1488|
+|glider|48x31|binary|186|
+|glider|48x31|RLE|25|
 
 ## WebSocket implementation
 
