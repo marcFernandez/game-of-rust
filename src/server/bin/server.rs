@@ -85,6 +85,20 @@ unsafe fn run(
     PREV_GRID[3 + GRID_WIDTH * 2] = 1;
     /**/
 
+    /* GLIDER 2 */
+    GRID[6 + GRID_WIDTH * 4] = 1;
+    GRID[7 + GRID_WIDTH * 4] = 1;
+    GRID[8 + GRID_WIDTH * 4] = 1;
+    GRID[7 + GRID_WIDTH * 2] = 1;
+    GRID[8 + GRID_WIDTH * 3] = 1;
+
+    PREV_GRID[6 + GRID_WIDTH * 4] = 1;
+    PREV_GRID[7 + GRID_WIDTH * 4] = 1;
+    PREV_GRID[8 + GRID_WIDTH * 4] = 1;
+    PREV_GRID[7 + GRID_WIDTH * 2] = 1;
+    PREV_GRID[8 + GRID_WIDTH * 3] = 1;
+    /**/
+
     /* STICK * /
     GRID[0 + GRID_WIDTH * 0] = 1;
     GRID[1 + GRID_WIDTH * 0] = 1;
@@ -133,9 +147,10 @@ unsafe fn run(
         render_debug_data(true, &state, &ACTIVE_CONNECTIONS)?;
 
         cmd_msg = CMD_NEW_GRID.to_be_bytes();
-        size_msg = (((GRID_WIDTH * GRID_HEIGHT) / 8) as u16).to_be_bytes();
+        //size_msg = (((GRID_WIDTH * GRID_HEIGHT) / 8) as u16).to_be_bytes();
         //grid_msg = compress_grid();
         grid_msg = compress_grid_rle();
+        size_msg = (grid_msg.len() as u16).to_be_bytes();
         state.encoded_grid_lengths.push(grid_msg.len());
         eprintln!("Sending content_msg: {:?}", grid_msg);
 
