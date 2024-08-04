@@ -176,7 +176,7 @@ mod tests {
     }
 }
 
-pub unsafe fn uncompress_grid(cgrid: &[u8]) {
+pub unsafe fn uncompress_grid_binary(cgrid: &[u8]) {
     for (i, byte) in cgrid.iter().enumerate() {
         for bit in 0..8 {
             GRID[(i * 8) + bit] = (byte >> bit) & 0x01;
@@ -184,6 +184,44 @@ pub unsafe fn uncompress_grid(cgrid: &[u8]) {
     }
     for i in 0..GRID_HEIGHT {
         eprintln!("{:?}", &GRID[(i * GRID_WIDTH)..((i * GRID_WIDTH) + GRID_WIDTH)]);
+    }
+}
+
+pub unsafe fn uncompress_grid_rle(cgrid: &[u8]) {
+    let mut i = 0;
+    let mut grid_idx: usize = 0;
+    let mut len_bytes;
+    let mut value_count: u16;
+    let mut value: u8;
+
+    eprintln!("uncompress_grid_rle: {cgrid:?}");
+
+    while i < cgrid.len() {
+        len_bytes = cgrid[i];
+        i += 1;
+        value_count = cgrid[i] as u16;
+        i += 1;
+
+        if len_bytes == 1 {
+        } else if len_bytes == 2 {
+            value_count = (value_count << 8) | (cgrid[i] as u16);
+            i += 1;
+        } else {
+            panic!("Unsupported length for count: {len_bytes}");
+        }
+
+        value = cgrid[i];
+        i += 1;
+
+        eprintln!(
+            "Received {value_count} {value}s from [{grid_idx}, {}]",
+            grid_idx + (value_count as usize)
+        );
+
+        for _ in 0..value_count {
+            GRID[grid_idx] = value;
+            grid_idx += 1;
+        }
     }
 }
 

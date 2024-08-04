@@ -1,6 +1,9 @@
 use gol_multi::{
     game::{GRID_HEIGHT, GRID_WIDTH},
-    net::{uncompress_grid, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, MAX_CONTENT_SIZE, SIZE_HEADER_SIZE},
+    net::{
+        uncompress_grid_binary, uncompress_grid_rle, CMD_HEADER_SIZE, CMD_LOG_MSG, CMD_NEW_GRID, MAX_CONTENT_SIZE,
+        SIZE_HEADER_SIZE,
+    },
     term::{clear_terminal, render},
 };
 use std::{
@@ -70,7 +73,8 @@ unsafe fn handle_connection(mut stream: TcpStream) -> Result<()> {
         match header_buffer[0] {
             CMD_NEW_GRID => {
                 eprintln!("Grid: {:?}", &content_buffer[0..((GRID_WIDTH * GRID_HEIGHT) / 8)]);
-                uncompress_grid(&content_buffer[0..((GRID_WIDTH * GRID_HEIGHT) / 8)]);
+                //uncompress_grid_binary(&content_buffer[0..((GRID_WIDTH * GRID_HEIGHT) / 8)]);
+                uncompress_grid_rle(&content_buffer[0..(content_size as usize)]);
                 render()?;
             }
             CMD_LOG_MSG => {
