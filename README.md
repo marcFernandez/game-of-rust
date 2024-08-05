@@ -155,7 +155,7 @@ cargo run --bin server 2> server.log
 
 ### TODO
 
-> Those are in order of priority, but it can always change ¯\_(ツ)_/¯
+> Those are in order of priority, but it can always change ¯\\_(ツ)_/¯
 
 - [X] ~Implement protocol to send/recv data~
 - [X] ~Send grid as bit per cell instead of byte per cell~
@@ -166,6 +166,7 @@ cargo run --bin server 2> server.log
   - [X] ~Basic implementation for small messages~
   - [ ] Write and read messages larger than 2^23 bytes
 - [X] ~RLE encoding~
+- [ ] Proper metrics and fancy graphs
 - [ ] Send relevant info to clients (i.e: active connections)
 - [ ] Gracefully handle client errors
 - [ ] Server to log a QR code for web clients to use (inspired by **tj_deev** [Writing a QR Code Generator in Go](https://www.youtube.com/watch?v=71SO8NB2ghU))
