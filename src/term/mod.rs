@@ -116,10 +116,37 @@ pub unsafe fn render_debug_data(active: bool, state: &State, active_connections:
         return Ok(());
     }
     let mut stdout = stdout();
-    stdout.queue(MoveTo(0 as u16, (GRID_HEIGHT + 3) as u16))?;
+    stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 3) as u16))?;
     stdout.write(format!("active_connections: {active_connections}\n").as_bytes())?;
-    stdout.queue(MoveTo(0 as u16, (GRID_HEIGHT + 4) as u16))?;
-    stdout.write(format!("time_running: {}s", state.frame / FPS).as_bytes())?;
+    stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 4) as u16))?;
+    stdout.write(format!("time_running: {}s", state.frames / FPS).as_bytes())?;
+    stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 5) as u16))?;
+    stdout.write(format!("frames: {}", state.frames).as_bytes())?;
+    stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 6) as u16))?;
+    stdout.write(format!("total_bytes_sent: {} B", state.total_bytes_sent).as_bytes())?;
+    stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 7) as u16))?;
+    stdout.write(format!("total_messages_sent: {}", state.total_messages_sent).as_bytes())?;
+    if state.total_messages_sent > 0 {
+        stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 8) as u16))?;
+        stdout.write(
+            format!(
+                "avg_message_bytes: {} B",
+                state.total_bytes_sent / state.total_messages_sent
+            )
+            .as_bytes(),
+        )?;
+    }
+    if state.encoded_grid_lengths.len() > 0 {
+        stdout.queue(MoveTo(1 as u16, (GRID_HEIGHT + 9) as u16))?;
+        stdout.write(
+            format!(
+                "avg_grid_msg_bytes: {} B",
+                state.encoded_grid_lengths.iter().sum::<usize>() / state.encoded_grid_lengths.len()
+            )
+            .as_bytes(),
+        )?;
+    }
+    eprintln!("encoded_grid_lengths: {:?}", state.encoded_grid_lengths);
     Ok(())
 }
 

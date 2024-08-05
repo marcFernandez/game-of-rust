@@ -46,7 +46,137 @@ pub unsafe fn compress_grid() -> [u8; (GRID_WIDTH * GRID_HEIGHT) / 8] {
     return compressed_grid;
 }
 
-pub unsafe fn uncompress_grid(cgrid: &[u8]) {
+pub unsafe fn compress_grid_rle() -> Vec<u8> {
+    //  GRID = ["0", "0", "1", "0", "0", "0", "1", "0", ...] -> 80 elems (10x8)
+    //
+    //  For RLE, first byte tells how many bytes represent the "number".
+    //  For instance, having RLE = "3o77z":
+    //    - [1, 3, 1, 1, 77, 0]
+    //       ^ next 1 bytes represent the number of values
+    //          ^ 3 of the next value
+    //             ^ the value
+    //  RLE = [1, 3, 1, 1, 77, 0] -> 6 bytes
+
+    let mut rle = Vec::new();
+
+    // assuming data.len() will always be > 0
+    let mut i = 1;
+    let mut current_value = GRID[0];
+    let mut current_count: usize = 1;
+
+    // [0, 0, 0, 0, 1, 1, 0, 0];
+    // [1, 4, 0, 1, 2, 1, 1, 2, 0];
+
+    while i < GRID.len() {
+        if GRID[i] == current_value {
+            current_count += 1;
+        } else {
+            if current_count < 256 {
+                rle.push(1);
+                rle.push(current_count as u8);
+            } else if current_count < 256 * 256 {
+                rle.push(2);
+                rle.push((current_count >> 8) as u8);
+                rle.push(current_count as u8);
+            }
+            rle.push(current_value);
+            current_count = 1;
+            current_value = GRID[i];
+        }
+        i += 1;
+    }
+    if current_count < 256 {
+        rle.push(1);
+        rle.push(current_count as u8);
+    } else if current_count < 256 * 256 {
+        rle.push(2);
+        rle.push((current_count >> 8) as u8);
+        rle.push(current_count as u8);
+    }
+    rle.push(current_value);
+
+    return rle;
+}
+
+pub fn compress_grid_rle_arg(data: &[u8]) -> Vec<u8> {
+    //  GRID = ["0", "0", "1", "0", "0", "0", "1", "0", ...] -> 80 elems (10x8)
+    //
+    //  For RLE, first byte tells how many bytes represent the "number".
+    //  For instance, having RLE = "3o77z":
+    //    - [1, 3, 1, 1, 77, 0]
+    //       ^ next 1 bytes represent the number of values
+    //          ^ 3 of the next value
+    //             ^ the value
+    //  RLE = [1, 3, 1, 1, 77, 0] -> 6 bytes
+
+    let mut rle = Vec::new();
+
+    // assuming data.len() will always be > 0
+    let mut i = 1;
+    let mut current_value = data[0];
+    let mut current_count: usize = 1;
+
+    // [0, 0, 0, 0, 1, 1, 0, 0];
+    // [1, 4, 0, 1, 2, 1, 1, 2, 0];
+
+    while i < data.len() {
+        if data[i] == current_value {
+            current_count += 1;
+        } else {
+            if current_count < 256 {
+                rle.push(1);
+                rle.push(current_count as u8);
+            } else if current_count < 256 * 256 {
+                rle.push(2);
+                rle.push((current_count >> 8) as u8);
+                rle.push(current_count as u8);
+            }
+            rle.push(current_value);
+            current_count = 1;
+            current_value = data[i];
+        }
+        i += 1;
+    }
+    if current_count < 256 {
+        rle.push(1);
+        rle.push(current_count as u8);
+    } else if current_count < 256 * 256 {
+        rle.push(2);
+        rle.push((current_count >> 8) as u8);
+        rle.push(current_count as u8);
+    }
+    rle.push(current_value);
+
+    return rle;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::net::compress_grid_rle_arg;
+
+    #[test]
+    fn test_rle() {
+        let data = [0, 0, 0, 1, 1, 0, 0];
+        let rle_data = [1, 3, 0, 1, 2, 1, 1, 2, 0];
+
+        let result = compress_grid_rle_arg(&data);
+
+        assert_eq!(result, rle_data);
+    }
+
+    #[test]
+    fn test_rle_two_bytes() {
+        let mut data: Vec<u8> = vec![0; 259];
+        data[257] = 1;
+        let rle_data = [2, (257 >> 8) as u8, (257 & 0xFF) as u8, 0, 1, 1, 1, 1, 1, 0];
+
+        let result = compress_grid_rle_arg(&data);
+
+        assert_eq!(result, rle_data);
+    }
+}
+
+pub unsafe fn uncompress_grid_binary(cgrid: &[u8]) {
     for (i, byte) in cgrid.iter().enumerate() {
         for bit in 0..8 {
             GRID[(i * 8) + bit] = (byte >> bit) & 0x01;
@@ -54,6 +184,44 @@ pub unsafe fn uncompress_grid(cgrid: &[u8]) {
     }
     for i in 0..GRID_HEIGHT {
         eprintln!("{:?}", &GRID[(i * GRID_WIDTH)..((i * GRID_WIDTH) + GRID_WIDTH)]);
+    }
+}
+
+pub unsafe fn uncompress_grid_rle(cgrid: &[u8]) {
+    let mut i = 0;
+    let mut grid_idx: usize = 0;
+    let mut len_bytes;
+    let mut value_count: u16;
+    let mut value: u8;
+
+    eprintln!("uncompress_grid_rle: {cgrid:?}");
+
+    while i < cgrid.len() {
+        len_bytes = cgrid[i];
+        i += 1;
+        value_count = cgrid[i] as u16;
+        i += 1;
+
+        if len_bytes == 1 {
+        } else if len_bytes == 2 {
+            value_count = (value_count << 8) | (cgrid[i] as u16);
+            i += 1;
+        } else {
+            panic!("Unsupported length for count: {len_bytes}");
+        }
+
+        value = cgrid[i];
+        i += 1;
+
+        eprintln!(
+            "Received {value_count} {value}s from [{grid_idx}, {}]",
+            grid_idx + (value_count as usize)
+        );
+
+        for _ in 0..value_count {
+            GRID[grid_idx] = value;
+            grid_idx += 1;
+        }
     }
 }
 
@@ -178,7 +346,7 @@ pub fn handle_ws_connection(mut stream: TcpStream) -> TcpStream {
     return stream;
 }
 
-pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8]) {
+pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8]) -> Result<usize, std::io::Error> {
     let mut response: Vec<u8> = Vec::new();
 
     let header: u8 = 0b10000010;
@@ -210,10 +378,12 @@ pub fn send_ws_msg(stream: &mut TcpStream, cmd: &[u8], size: &[u8], data: &[u8])
         response.push(*u);
     });
 
-    stream.write_all(&response).expect("Data to be sent");
+    stream.write_all(&response)?;
+
+    return Ok(response.len());
 }
 
-pub fn send_ws_msg_text(stream: &mut TcpStream, message: &str) {
+pub fn send_ws_msg_text(stream: &mut TcpStream, message: &str) -> Result<usize, std::io::Error> {
     let mut response: Vec<u8> = Vec::new();
 
     let header: u8 = 0b10000010;
@@ -237,11 +407,9 @@ pub fn send_ws_msg_text(stream: &mut TcpStream, message: &str) {
 
     response.push(CMD_LOG_MSG);
     // TODO: probably it makes sense to error if len does not fit in 16 bits
-    [(message.len() >> 8) as u8, message.len() as u8]
-        .iter()
-        .for_each(|u| {
-            response.push(*u);
-        });
+    [(message.len() >> 8) as u8, message.len() as u8].iter().for_each(|u| {
+        response.push(*u);
+    });
 
     eprint!("\nSending: ");
     message.chars().for_each(|c| {
@@ -251,7 +419,9 @@ pub fn send_ws_msg_text(stream: &mut TcpStream, message: &str) {
     eprint!("\n");
 
     eprintln!("{:?}", response);
-    stream.write_all(&response).expect("Data to be sent");
+    stream.write_all(&response)?;
+
+    return Ok(response.len());
 }
 
 const DIMENSIONS_MSG_LEN: u8 = 7;
@@ -288,4 +458,14 @@ pub fn send_dimensions(stream: &mut TcpStream) {
     ];
 
     stream.write_all(&msg).expect("Data to be sent");
+}
+
+pub fn write_data_to_stream(stream: &mut TcpStream, data: &[u8]) -> Result<usize, std::io::Error> {
+    return match stream.write(&data) {
+        Ok(n) if n == 0 => panic!("write call returned 0"),
+        Ok(n) if n < data.len() => todo!("write call was unable to write all bytes"),
+        Ok(n) if n == data.len() => Ok(n),
+        Err(e) => Err(e),
+        _ => unreachable!("Neither an error nor an expected num of bytes were returned in the write call"),
+    };
 }

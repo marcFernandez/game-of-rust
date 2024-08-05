@@ -11,15 +11,18 @@ pub fn print_usage() {
 }
 
 pub struct State {
-    pub frame: usize,
+    pub total_bytes_sent: usize,
+    pub total_messages_sent: usize,
+    pub encoded_grid_lengths: Vec<usize>,
+    pub frames: usize,
 }
 
-//pub const GRID_WIDTH: usize = 10;
-//pub const GRID_HEIGHT: usize = 8;
+//pub const GRID_WIDTH: usize = 48;
+//pub const GRID_HEIGHT: usize = 10;
 pub const GRID_WIDTH: usize = 48;
 pub const GRID_HEIGHT: usize = 31;
 
-pub const FPS: usize = 10;
+pub const FPS: usize = 5;
 pub const MS_PER_FRAME: usize = 1000 / FPS;
 pub const CELL: &str = "  ";
 
@@ -42,14 +45,19 @@ pub fn create_state() -> State {
         }
     }
 
-    return State { frame: 0 };
+    return State {
+        total_bytes_sent: 0,
+        encoded_grid_lengths: Vec::new(),
+        total_messages_sent: 0,
+        frames: 0,
+    };
 }
 
 pub unsafe fn next_grid() {
     for y in 0..(GRID_HEIGHT as usize) {
         for x in 0..(GRID_WIDTH as usize) {
             let prev_val = GRID[x + GRID_WIDTH * y];
-            let new_val = compute_neighbors(GRID[x + GRID_WIDTH * y], x, y);
+            let new_val = compute_neighbors(prev_val, x, y);
             GRID[x + GRID_WIDTH * y] = new_val;
         }
     }
