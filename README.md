@@ -166,6 +166,7 @@ cargo run --bin server 2> server.log
   - [X] ~Basic implementation for small messages~
   - [ ] Write and read messages larger than 2^23 bytes
 - [X] ~RLE encoding~
+- [ ] Build Client -> Relay -> Server impl
 - [ ] Explore sending only updated cells
 - [ ] Proper metrics and fancy graphs
 - [ ] Send relevant info to clients (i.e: active connections)
