@@ -168,6 +168,7 @@ cargo run --bin server 2> server.log
 - [X] ~RLE encoding~
 - [ ] Build Client -> Relay -> Server impl
 - [ ] Explore sending only updated cells
+- [ ] Add args parsing for easier customization
 - [ ] Proper metrics and fancy graphs
 - [ ] Send relevant info to clients (i.e: active connections)
 - [ ] Gracefully handle client errors
