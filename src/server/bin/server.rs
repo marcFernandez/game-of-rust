@@ -136,7 +136,6 @@ unsafe fn run(
 
     let mut cmd_msg: [u8; CMD_HEADER_SIZE];
     let mut size_msg: [u8; SIZE_HEADER_SIZE];
-    //let mut grid_msg: [u8; (GRID_WIDTH * GRID_HEIGHT) / 8];
     let mut grid_msg: Vec<u8>;
 
     let mut send_msg = false;

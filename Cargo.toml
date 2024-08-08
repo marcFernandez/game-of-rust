@@ -6,6 +6,10 @@ path = "src/server/bin/server.rs"
 name = "client"
 path = "src/client/bin/client.rs"
 
+[[bin]]
+name = "relay"
+path = "src/relay/bin/relay.rs"
+
 [package]
 name = "gol-multi"
 version = "0.1.0"
